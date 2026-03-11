@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Signal Decrypter</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
+
+<style>
+body { font-family: Arial; max-width: 700px; margin: 40px auto; }
+textarea { width:100%; height:120px; }
+input { width:100%; padding:8px; }
+button { padding:10px 20px; margin-top:10px; }
+#output { margin-top:20px; white-space:pre-wrap; background:#eee; padding:10px; }
+</style>
+
+</head>
+<body>
+
+<h2>Signal Decrypter</h2>
+
+<label>Encrypted Base64</label>
+<textarea id="base64"></textarea>
+
+<label>Password</label>
+<input id="password" type="password">
+
+<button onclick="decryptSignal()">Decrypt</button>
+
+<div id="output"></div>
+
+<script>
+
+function openSSLKeyIv(password, salt) {
+
+  var pw = CryptoJS.enc.Utf8.parse(password);
+
+  var d1 = CryptoJS.MD5(pw.clone().concat(salt));
+  var d2 = CryptoJS.MD5(d1.clone().concat(pw).concat(salt));
+
+  return { key: d1, iv: d2 };
+}
+
+function decryptSignal() {
+
+  var base64Input = document.getElementById("base64").value.trim();
+  var password = document.getElementById("password").value;
+
+  if (!base64Input || !password) {
+    document.getElementById("output").innerText = "Enter base64 and password.";
+    return;
+  }
+
+  try {
+
+    var raw = CryptoJS.enc.Base64.parse(base64Input);
+
+    if (raw.sigBytes < 16) {
+      document.getElementById("output").innerText = "Error: data too short.";
+      return;
+    }
+
+    var words = raw.words;
+
+    var magic =
+      String.fromCharCode(
+        (words[0] >>> 24) & 0xff,
+        (words[0] >>> 16) & 0xff,
+        (words[0] >>> 8) & 0xff,
+        words[0] & 0xff,
+        (words[1] >>> 24) & 0xff,
+        (words[1] >>> 16) & 0xff,
+        (words[1] >>> 8) & 0xff,
+        words[1] & 0xff
+      );
+
+    if (magic !== "Salted__") {
+      document.getElementById("output").innerText = "Error: not OpenSSL salted format.";
+      return;
+    }
+
+    var saltBytes = [];
+
+    for (var i = 8; i < 16; i++) {
+      saltBytes.push((words[i >>> 2] >>> (24 - (i % 4) * 8)) & 0xff);
+    }
+
+    var salt = CryptoJS.lib.WordArray.create([
+      (saltBytes[0]<<24)|(saltBytes[1]<<16)|(saltBytes[2]<<8)|saltBytes[3],
+      (saltBytes[4]<<24)|(saltBytes[5]<<16)|(saltBytes[6]<<8)|saltBytes[7]
+    ],8);
+
+    var ciphertext = CryptoJS.lib.WordArray.create(words.slice(4), raw.sigBytes - 16);
+
+    var derived = openSSLKeyIv(password, salt);
+
+    var decrypted = CryptoJS.AES.decrypt(
+      { ciphertext: ciphertext },
+      derived.key,
+      { iv: derived.iv, mode: CryptoJS.mode.CBC, padding: CryptoJS.pad.Pkcs7 }
+    );
+
+    var result = decrypted.toString(CryptoJS.enc.Utf8);
+
+    document.getElementById("output").innerText =
+      result || "Error: wrong password or bad data.";
+
+  } catch(e) {
+
+    document.getElementById("output").innerText = "Error: " + e.message;
+
+  }
+}
+
+</script>
+
+</body>
+</html>
