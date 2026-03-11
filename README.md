@@ -1,3 +1,3 @@
-User paste signal
-User enter password
+User: paste signal,
+User: enter password,
 Browser decrypts locally
