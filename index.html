@@ -1,118 +1,64 @@
 <!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<title>Signal Decrypter</title>
-  
-<script src="crypto-js.min.js"></script>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Overnight Gap — Signal Client</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header>
+      <h1>Overnight Gap</h1>
+      <p class="sub">Decrypt signals locally, or sign in to fetch today’s payload (members).</p>
+    </header>
 
-<style>
-body { font-family: Arial; max-width: 700px; margin: 40px auto; }
-textarea { width:100%; height:120px; }
-input { width:100%; padding:8px; }
-button { padding:10px 20px; margin-top:10px; }
-#output { margin-top:20px; white-space:pre-wrap; background:#eee; padding:10px; }
-</style>
+    <main>
+      <section id="manual-decrypt" class="panel">
+        <h2>Decrypt signal (local only)</h2>
+        <p class="hint">
+          OpenSSL <code>Salted__</code> base64 and your password — same crypto as
+          <a href="./decrypt-only.html">decrypt-only</a> and the original
+          <a href="https://github.com/overnightspy/signal-decryption-tool" target="_blank" rel="noopener">signal-decryption-tool</a>.
+          Nothing is uploaded.
+        </p>
+        <label>Encrypted signal (base64)<br /><textarea id="dec-base64" rows="5" autocomplete="off" spellcheck="false"></textarea></label>
+        <label>Password<br /><input type="password" id="dec-password" autocomplete="off" /></label>
+        <button type="button" id="btn-decrypt">Decrypt</button>
+        <pre id="dec-out" class="payload"></pre>
+      </section>
 
-</head>
-<body>
+      <section id="auth-section" class="panel">
+        <h2>Member sign-in</h2>
+        <p class="hint">After login you can retrieve encrypted payloads from the API (tiered access).</p>
+        <label>Email<br /><input type="email" id="email" autocomplete="username" /></label>
+        <label>Password<br /><input type="password" id="login-password" autocomplete="current-password" /></label>
+        <button type="button" id="btn-login">Log in</button>
+        <p id="auth-status" class="status"></p>
+      </section>
 
-<h2>Signal Decrypter</h2>
+      <section id="signal-section" class="panel hidden">
+        <p class="session-bar">
+          <span id="session-email"></span>
+          <button type="button" id="btn-logout" class="secondary">Log out</button>
+        </p>
+        <h2>Fetch encrypted signal</h2>
+        <button type="button" id="btn-today">Get today’s signal</button>
+        <div id="premium-only" class="hidden">
+          <h3>Historical (premium)</h3>
+          <label>Start (YYYY-MM-DD)<br /><input type="text" id="hist-start" placeholder="2026-03-01" /></label>
+          <label>End (YYYY-MM-DD)<br /><input type="text" id="hist-end" placeholder="2026-03-15" /></label>
+          <button type="button" id="btn-historical">Fetch range</button>
+        </div>
+        <p class="hint">Response JSON may auto-fill the decrypt box when there is a single payload.</p>
+        <pre id="response" class="payload"></pre>
+      </section>
+    </main>
 
-<label>Encrypted Signal Text</label>
-<textarea id="base64"></textarea>
+    <footer>
+      <p>Decrypt works without an account. One successful member fetch per UTC day; premium unlocks historical ranges.</p>
+    </footer>
 
-<label>Password</label>
-<input id="password" type="password">
-
-<button onclick="decryptSignal()">Decrypt</button>
-
-<div id="output"></div>
-
-<script>
-
-function openSSLKeyIv(password, salt) {
-
-  var pw = CryptoJS.enc.Utf8.parse(password);
-
-  var d1 = CryptoJS.MD5(pw.clone().concat(salt));
-  var d2 = CryptoJS.MD5(d1.clone().concat(pw).concat(salt));
-
-  return { key: d1, iv: d2 };
-}
-
-function decryptSignal() {
-
-  var base64Input = document.getElementById("base64").value.trim();
-  var password = document.getElementById("password").value;
-
-  if (!base64Input || !password) {
-    document.getElementById("output").innerText = "Enter base64 and password.";
-    return;
-  }
-
-  try {
-
-    var raw = CryptoJS.enc.Base64.parse(base64Input);
-
-    if (raw.sigBytes < 16) {
-      document.getElementById("output").innerText = "Error: data too short.";
-      return;
-    }
-
-    var words = raw.words;
-
-    var magic =
-      String.fromCharCode(
-        (words[0] >>> 24) & 0xff,
-        (words[0] >>> 16) & 0xff,
-        (words[0] >>> 8) & 0xff,
-        words[0] & 0xff,
-        (words[1] >>> 24) & 0xff,
-        (words[1] >>> 16) & 0xff,
-        (words[1] >>> 8) & 0xff,
-        words[1] & 0xff
-      );
-
-    if (magic !== "Salted__") {
-      document.getElementById("output").innerText = "Error: not OpenSSL salted format.";
-      return;
-    }
-
-    var saltBytes = [];
-
-    for (var i = 8; i < 16; i++) {
-      saltBytes.push((words[i >>> 2] >>> (24 - (i % 4) * 8)) & 0xff);
-    }
-
-    var salt = CryptoJS.lib.WordArray.create([
-      (saltBytes[0]<<24)|(saltBytes[1]<<16)|(saltBytes[2]<<8)|saltBytes[3],
-      (saltBytes[4]<<24)|(saltBytes[5]<<16)|(saltBytes[6]<<8)|saltBytes[7]
-    ],8);
-
-    var ciphertext = CryptoJS.lib.WordArray.create(words.slice(4), raw.sigBytes - 16);
-
-    var derived = openSSLKeyIv(password, salt);
-
-    var decrypted = CryptoJS.AES.decrypt(
-      { ciphertext: ciphertext },
-      derived.key,
-      { iv: derived.iv, mode: CryptoJS.mode.CBC, padding: CryptoJS.pad.Pkcs7 }
-    );
-
-    var result = decrypted.toString(CryptoJS.enc.Utf8);
-
-    document.getElementById("output").innerText =
-      result || "Error: wrong password or bad data.";
-
-  } catch(e) {
-
-    document.getElementById("output").innerText = "Error: " + e.message;
-
-  }
-}
-
-</script>
-
-</body>
+    <script src="./crypto-js.min.js"></script>
+    <script type="module" src="./app.js"></script>
+  </body>
 </html>
