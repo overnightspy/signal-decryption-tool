@@ -1,28 +1,56 @@
 # signal-decryption-tool
 
-Canonical **static** web client for Overnight Gap signals.
+Canonical **static** web client for Overnight Gap: **local decrypt** (no server) plus an optional **member portal** (Firebase Auth + `getSignal`).
 
-## What’s in the repo
+Repo: **https://github.com/overnightspy/signal-decryption-tool** (single branch: `main`).
+
+## Files
 
 | File | Purpose |
 |------|---------|
-| **`index.html`** | **Main app** — local OpenSSL `Salted__` decrypt (no account) + optional **Firebase Auth** + Cloud Function fetch (tiered). |
-| **`decrypt-only.html`** | Original-style single-page decrypt only (paste base64 + password). |
-| **`app.js`** | Auth + API + `CryptoJS` decrypt (set `firebaseConfig` + `FUNCTION_URL`). |
-| **`styles.css`** | Shared layout. |
-| **`crypto-js.min.js`** | Vendored library (offline-friendly). |
+| **`index.html`** | Main app: manual decrypt + member sign-in + “today” / premium range fetch. |
+| **`decrypt-only.html`** | Minimal page: paste OpenSSL `Salted__` base64 + password only (original-style). |
+| **`app.js`** | Firebase Auth, `fetch` to **`FUNCTION_URL`**, shared CryptoJS decrypt. |
+| **`styles.css`** | Layout. |
+| **`crypto-js.min.js`** | Vendored CryptoJS (no CDN required for crypto). |
 
-## Decrypt
+## Decrypt (no account)
 
-- Paste **encrypted base64** (OpenSSL salted format) and **password**. All decryption runs in the browser; **nothing is sent** when you decrypt.
-- **`decrypt-only.html`** is the minimal bookmark-friendly page.
+- Format: **OpenSSL salted** base64 (`Salted__` header), same as **`openssl enc -aes-256-cbc -salt`** style payloads.
+- All decryption runs **in the browser**; passwords are not sent to Firebase for decrypt.
 
 ## Members (Firebase)
 
-1. In `app.js`, set **`firebaseConfig`** and **`FUNCTION_URL`** (your deployed `getSignal` HTTPS function).
-2. Deploy with **Firebase Hosting** (see `OvernightGap/Firebase/firebase.json` → `public` points at this folder) or **GitHub Pages** from this repo.
-3. **Base** tier: today’s signal. **Premium**: date-range fetch. Server enforces rules (auth, rate, IP logs).
+Configured in **`app.js`**: **`firebaseConfig`** (web app) and **`FUNCTION_URL`** (deployed `getSignal` HTTPS URL; Gen 2 may use a **\*.run.app** host).
 
-## Repo layout
+**Console checklist**
 
-This project lives under `Automation_Project/OvernightGap/signal-decryption-tool` and is the **single source** for the public/client HTML. Push to `https://github.com/overnightspy/signal-decryption-tool`.
+- Authentication → **Email/Password** enabled.
+- **Authorized domains**: your Hosting domain(s), **localhost** for dev, and any **GitHub Pages** host if you use Pages.
+
+## Hosting options
+
+### Firebase Hosting (recommended with backend)
+
+Firebase project files live next to this folder in the monorepo: **`Automation_Project/OvernightGap/`**.
+
+```bash
+cd /path/to/Automation_Project/OvernightGap
+firebase deploy --only hosting
+```
+
+(`firebase.json` sets **`public`** to **`signal-decryption-tool`**.)
+
+### GitHub Pages
+
+Push this repo to **`main`** and enable Pages from the repo root **`/`** → default site is **`index.html`**.
+
+Admin operations (create users, push encrypted signals, logs) use the **local admin CLI** documented in the monorepo: **`OvernightGap/Firebase/admin-cli/README.md`**.
+
+## Local monorepo path (development)
+
+If you use the full **Automation_Project** tree, this repo is usually checked out at:
+
+`Automation_Project/OvernightGap/signal-decryption-tool`
+
+Keep GitHub **`main`** in sync with that directory when you ship client changes.

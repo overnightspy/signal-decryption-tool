@@ -12,15 +12,17 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
 
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID",
+  apiKey: "AIzaSyCh_79RTnyTT3a-DJ839G06IKHUlD-clbI",
+  authDomain: "overnightgapsignal.firebaseapp.com",
+  projectId: "overnightgapsignal",
+  storageBucket: "overnightgapsignal.firebasestorage.app",
+  messagingSenderId: "59722837370",
+  appId: "1:59722837370:web:73c8284f033337b720bac3",
+  measurementId: "G-0QKCZWH02N",
 };
 
-const FUNCTION_URL = "https://us-central1-YOUR_PROJECT_ID.cloudfunctions.net/getSignal";
+// Gen 2 HTTPS trigger (Cloud Run). Console may show *.run.app instead of cloudfunctions.net.
+const FUNCTION_URL = "https://getsignal-nwthnnei5a-uc.a.run.app";
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
